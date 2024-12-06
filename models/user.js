@@ -63,7 +63,35 @@ const UserSchema = Schema({
     friendRequests: [{
         type: Schema.Types.ObjectId,
         ref: 'User'
-    }]
+    }],
+    sentFriendRequests: [{
+        type: Schema.Types.ObjectId,
+        ref: 'User'
+    }],
+    notifications: [{
+        type: {
+            type: String, // e.g., "mention", "friendRequest", etc.
+            required: true
+        },
+        sender: {
+            type: Schema.Types.ObjectId,
+            ref: 'User',
+            required: true
+        },
+        message: {
+            type: String, // e.g., "You have been mentioned in a group chat", "New friend request from XYZ", etc.
+            required: true
+        },
+        createdAt: {
+            type: Date,
+            default: Date.now,
+            required: true
+        },
+        read: {
+            type: Boolean,
+            default: false
+        }
+    }],
 }, {
     timestamps: true,
 });
