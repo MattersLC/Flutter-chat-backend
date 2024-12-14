@@ -8,7 +8,7 @@ const getFriends = async (req, res = response) => {
 
     try {
         // Find the user by their ID
-        const user = await User.findById(req.uid).populate('friends', 'name email profilePicture');
+        const user = await User.findById(req.uid).populate('friends', 'name email online lastConnection profilePicture');
 
         if (!user) {
             return res.status(404).json({
