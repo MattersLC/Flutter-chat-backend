@@ -1,7 +1,8 @@
 const { response } = require('express');
 const User = require('../models/user');
+const Message = require('../models/message');
 
-const getChats = async ( req, res = response ) => {
+/*const getChats = async ( req, res = response ) => {
     const desde = Number( req.query.desde ) || 0;
 
     // Fetch the user's friends
@@ -31,7 +32,54 @@ const getChats = async ( req, res = response ) => {
         friends: paginatedFriends,
         desde,
     });
-}
+}*/
+
+const getChats = async (req, res = response) => {
+    const desde = Number(req.query.desde) || 0;
+
+    // Fetch the user's friends
+    const user = await User.findById(req.uid).populate('friends');
+    const friends = user.friends;
+
+    // Fetch last message info for each friend
+    const friendsWithMessages = await Promise.all(friends.map(async (friend) => {
+        const lastMessage = await Message.findOne({
+            $or: [{ from: req.uid, to: friend._id }, { from: friend._id, to: req.uid }]
+        }).sort({ createdAt: 'desc' });
+
+        const isPinned = friend.pinnedChats.includes(req.uid); // Assuming you have this field
+
+        return {
+            user: friend,
+            _id: friend._id,
+            name: friend.name,
+            lastMessage: lastMessage ? lastMessage.message : null,
+            lastMessageTime: lastMessage ? lastMessage.createdAt : null,
+            lastMessageViewed: lastMessage ? lastMessage.viewed : null,
+            isPinned: isPinned,
+        };
+    }));
+
+    // Separate pinned and general friends
+    const pinnedChats = friendsWithMessages.filter(chat => chat.isPinned);
+    const generalChats = friendsWithMessages.filter(chat => !chat.isPinned);
+
+    // Apply pagination to general chats
+    const paginatedFriends = generalChats.slice(desde, desde + 20);
+
+    /*res.json({
+        ok: true,
+        pinnedChats,
+        generalChats: paginatedFriends,
+        desde,
+    });*/
+    res.json({ 
+        ok: true, 
+        chats: [...pinnedChats, ...paginatedFriends], // Combine both lists 
+        desde, 
+    });
+};
+
 
 module.exports = {
     getChats

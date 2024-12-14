@@ -11,6 +11,7 @@ const userConnected = async ( uid = '' ) => {
 const userDisconnected = async ( uid = '' ) => {
     const user = await User.findById( uid );
     user.online = false;
+    user.lastConnection = new Date();
     await user.save();
     return user;
 }

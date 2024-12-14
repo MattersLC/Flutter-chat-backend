@@ -10,7 +10,6 @@ const getUsers = async ( req, res = response ) => {
         .skip(desde)
         .limit(20)
         .exec();
-    
 
     res.json({
         ok: true,
@@ -19,7 +18,7 @@ const getUsers = async ( req, res = response ) => {
     });
 }
 
-const sendFriendRequest = async (req, res = response) => {
+/*const sendFriendRequest = async (req, res = response) => {
     try {
         const { toUserId } = req.body;
         const fromUserId = req.uid;
@@ -44,9 +43,8 @@ const sendFriendRequest = async (req, res = response) => {
     } catch (err) {
         res.status(500).json({ ok: false, msg: 'An error occurred' });
     }
-};
+};*/
 
 module.exports = {
-    getUsers,
-    sendFriendRequest
+    getUsers
 }
