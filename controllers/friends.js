@@ -42,7 +42,7 @@ const getFriendRequests = async (req, res = response) => {
     const desde = Number(req.query.desde) || 0;
 
     try {
-        const user = await User.findById(req.uid).populate('friendRequests', 'name online lastConnection email profilePicture');
+        const user = await User.findById(req.uid).populate('friendRequests', 'name email online lastConnection profilePicture');
 
         if (!user) {
             return res.status(404).json({
@@ -70,7 +70,7 @@ const getSentFriendRequests = async (req, res = response) => {
     const desde = Number(req.query.desde) || 0;
 
     try {
-        const user = await User.findById(req.uid).populate('sentFriendRequests', 'name email profilePicture');
+        const user = await User.findById(req.uid).populate('sentFriendRequests', 'name email online lastConnection profilePicture');
 
         if (!user) {
             return res.status(404).json({
@@ -79,11 +79,11 @@ const getSentFriendRequests = async (req, res = response) => {
             });
         }
 
-        const sentFriendRequests = user.sentFriendRequests.slice(desde, desde + 20);
+        const friends = user.sentFriendRequests.slice(desde, desde + 20);
         
         res.json({
             ok: true,
-            sentFriendRequests,
+            friends,
             desde,
         });
     } catch (error) {
