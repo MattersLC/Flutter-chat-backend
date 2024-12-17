@@ -3,6 +3,7 @@ const User = require('../models/user');
 
 const getUsers = async ( req, res = response ) => {
     const desde = Number( req.query.desde ) || 0;
+    console.log('getUsers')
 
     const users = await User
         .find({ _id: { $ne: req.uid } })
@@ -10,6 +11,8 @@ const getUsers = async ( req, res = response ) => {
         .skip(desde)
         .limit(20)
         .exec();
+
+    console.log(users);
 
     res.json({
         ok: true,

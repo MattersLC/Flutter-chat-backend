@@ -52,7 +52,7 @@ const UserSchema = Schema({
         type: Schema.Types.ObjectId,
         ref: 'User'
     }],
-    friends: [{
+    /*friends: [{
         type: Schema.Types.ObjectId,
         ref: 'User'
     }],
@@ -67,7 +67,7 @@ const UserSchema = Schema({
     sentFriendRequests: [{
         type: Schema.Types.ObjectId,
         ref: 'User'
-    }],
+    }],*/
     notifications: [{
         type: {
             type: String, // e.g., "mention", "friendRequest", etc.

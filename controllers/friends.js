@@ -1,27 +1,25 @@
 const { response } = require('express');
 const User = require('../models/user');
+const Relationship = require('../models/relationship');
 
 const getFriends = async (req, res = response) => {
     const desde = Number(req.query.desde) || 0;
 
     try {
-        // Find the user by their ID
-        const user = await User.findById(req.uid).populate('friends', 'name email online lastConnection profilePicture');
+        const friends = await Relationship
+            .find({
+                $or: [
+                    { user_id: req.uid, status: 'friend' },
+                    { related_user_id: req.uid, status: 'friend' }
+                ]
+            })
+            .populate('user_id related_user_id')
+            .skip(desde)
+            .limit(20)
+            .exec();
 
-        if (!user) {
-            return res.status(404).json({
-                ok: false,
-                msg: 'User not found'
-            });
-        }
-
-        // Paginate friend requests
-        const friends = user.friends.slice(desde, desde + 20);
-        /*const friendRequests = user.friendRequests.length; 
-        const sentFriendRequests = user.sentFriendRequests.length;
         console.log(friends);
-        console.log(friendRequests);
-        console.log(sentFriendRequests);*/
+        
         res.json({
             ok: true,
             friends,
@@ -40,16 +38,18 @@ const getFriendRequests = async (req, res = response) => {
     const desde = Number(req.query.desde) || 0;
 
     try {
-        const user = await User.findById(req.uid).populate('friendRequests', 'name email online lastConnection profilePicture');
+        const friends = await Relationship
+            .find({
+                $or: [
+                    { related_user_id: req.uid, status: 'pending' }
+                ]
+            })
+            .populate('user_id related_user_id')
+            .skip(desde)
+            .limit(20)
+            .exec();
 
-        if (!user) {
-            return res.status(404).json({
-                ok: false,
-                msg: 'User not found'
-            });
-        }
-
-        const friends = user.friendRequests.slice(desde, desde + 20);
+        console.log(friends);
         
         res.json({
             ok: true,
@@ -68,16 +68,18 @@ const getSentFriendRequests = async (req, res = response) => {
     const desde = Number(req.query.desde) || 0;
 
     try {
-        const user = await User.findById(req.uid).populate('sentFriendRequests', 'name email online lastConnection profilePicture');
+        const friends = await Relationship
+            .find({
+                $or: [
+                    { user_id: req.uid, status: 'pending' },
+                ]
+            })
+            .populate('user_id related_user_id')
+            .skip(desde)
+            .limit(20)
+            .exec();
 
-        if (!user) {
-            return res.status(404).json({
-                ok: false,
-                msg: 'User not found'
-            });
-        }
-
-        const friends = user.sentFriendRequests.slice(desde, desde + 20);
+        console.log(friends);
         
         res.json({
             ok: true,
@@ -96,12 +98,20 @@ const getTotalFriendRequests = async ( req, res = response ) => {
     const desde = Number( req.query.desde ) || 0;
 
     try {
-        const user = await User.findById(req.uid).populate('friendRequests');
-        const friendRequests = user.friendRequests.length;
+        const friendRequests = await Relationship
+            .find({
+                $or: [
+                    { related_user_id: req.uid, status: 'pending' }
+                ]
+            })
+            .populate('user_id related_user_id')
+            .exec();
+
+        const totalFriendRequests = friendRequests.length;
 
         res.json({
             ok: true,
-            friendRequests,
+            totalFriendRequests,
             desde,
         });
     } catch (error) {
@@ -117,12 +127,20 @@ const getTotalSentFriendRequests = async ( req, res = response ) => {
     const desde = Number( req.query.desde ) || 0;
 
     try {
-        const user = await User.findById(req.uid).populate('sentFriendRequests');
-        const sentFriendRequests = user.sentFriendRequests.length;
+        const sentFriendRequests = await Relationship
+            .find({
+                $or: [
+                    { user_id: req.uid, status: 'pending' },
+                ]
+            })
+            .populate('user_id related_user_id')
+            .exec();
+
+        const totalSentFriendRequests = sentFriendRequests.length;
 
         res.json({
             ok: true,
-            sentFriendRequests,
+            totalSentFriendRequests,
             desde,
         });
     } catch (error) {
@@ -139,7 +157,9 @@ const sendFriendRequest = async (req, res = response) => {
         const { toUserId } = req.body;
         const fromUserId = req.uid;
 
-        const fromUser = await User.findById(fromUserId);
+        const relationshipExists = await Relationship.findOne({ user_id })
+
+        /*const fromUser = await User.findById(fromUserId);
         const toUser = await User.findById(toUserId);
 
         if (!fromUser || !toUser) {
@@ -153,7 +173,7 @@ const sendFriendRequest = async (req, res = response) => {
             await toUser.save();
             fromUser.sentFriendRequests.push(toUserId);
             await fromUser.save();
-        }
+        }*/
 
         res.json({ ok: true, msg: 'Friend request sent', });
     } catch (err) {
