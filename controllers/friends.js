@@ -4,8 +4,6 @@ const User = require('../models/user');
 const getFriends = async (req, res = response) => {
     const desde = Number(req.query.desde) || 0;
 
-    console.log(`uid: ${req.uid}`);
-
     try {
         // Find the user by their ID
         const user = await User.findById(req.uid).populate('friends', 'name email online lastConnection profilePicture');

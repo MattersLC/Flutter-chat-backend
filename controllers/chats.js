@@ -47,8 +47,9 @@ const getChats = async (req, res = response) => {
             $or: [{ from: req.uid, to: friend._id }, { from: friend._id, to: req.uid }]
         }).sort({ createdAt: 'desc' });
 
-        const isPinned = friend.pinnedChats.includes(req.uid); // Assuming you have this field
-
+        console.log(`friend: ${friend.name}`);
+        const isPinned = friend.pinnedChats.includes(req.uid);
+        console.log(`isPinned: ${isPinned}`);
         return {
             user: friend,
             _id: friend._id,
@@ -62,7 +63,10 @@ const getChats = async (req, res = response) => {
 
     // Separate pinned and general friends
     const pinnedChats = friendsWithMessages.filter(chat => chat.isPinned);
-    const generalChats = friendsWithMessages.filter(chat => !chat.isPinned);
+    console.log(pinnedChats);
+    console.log('-----------');
+    const generalChats = friendsWithMessages.filter(chat => !chat.isPinned && chat.lastMessage != null);
+    console.log(generalChats);
 
     // Apply pagination to general chats
     const paginatedFriends = generalChats.slice(desde, desde + 20);
