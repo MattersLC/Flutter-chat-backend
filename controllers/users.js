@@ -12,8 +12,6 @@ const getUsers = async ( req, res = response ) => {
         .limit(20)
         .exec();
 
-    console.log(users);
-
     res.json({
         ok: true,
         users,

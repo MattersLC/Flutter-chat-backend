@@ -1,19 +1,19 @@
 const { Schema, model } = require('mongoose');
 
 const RelationshipSchema = Schema({
-    user_id: {
+    fromUserId: {
         type: Schema.Types.ObjectId,
         ref: 'User',
         required: true
     },
-    related_user_id: {
+    toUserId: {
         type: Schema.Types.ObjectId,
         ref: 'User',
         required: true
     },
     status: {
         type: String,
-        enum: ['pending', 'friend', 'blocked'],
+        enum: ['pending', 'friends', 'blocked'],
         required: true
     },
     createdAt: {
