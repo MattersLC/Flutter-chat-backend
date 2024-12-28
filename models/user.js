@@ -52,22 +52,6 @@ const UserSchema = Schema({
         type: Schema.Types.ObjectId,
         ref: 'User'
     }],
-    /*friends: [{
-        type: Schema.Types.ObjectId,
-        ref: 'User'
-    }],
-    blocked: [{
-        type: Schema.Types.ObjectId,
-        ref: 'User'
-    }],
-    friendRequests: [{
-        type: Schema.Types.ObjectId,
-        ref: 'User'
-    }],
-    sentFriendRequests: [{
-        type: Schema.Types.ObjectId,
-        ref: 'User'
-    }],*/
     notifications: [{
         type: {
             type: String, // e.g., "mention", "friendRequest", etc.

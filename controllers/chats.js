@@ -107,11 +107,11 @@ const getChats = async (req, res = response) => {
         return rel.user_id.toString() === userId ? rel.related_user_id : rel.user_id;
     });
 
-    console.log('------- User -------');
+    /*console.log('------- User -------');
     console.log(userId);
 
     console.log('------- Friends -------');
-    console.log(friends);
+    console.log(friends);*/
 
     // Fetch last message info for each friend
     const friendsWithMessages = await Promise.all(friends.map(async (friend) => {

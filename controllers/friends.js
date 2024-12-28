@@ -6,17 +6,54 @@ const getFriends = async (req, res = response) => {
     const desde = Number(req.query.desde) || 0;
 
     try {
-        const friends = await Relationship
+        let friends = [];
+        // Get all users when fromUserId matchs current user
+        const fromUserFriends = await Relationship
             .find({
                 $or: [
-                    { user_id: req.uid, status: 'friend' },
-                    { related_user_id: req.uid, status: 'friend' }
+                    { fromUserId: req.uid, status: 'friends' },
                 ]
             })
-            .populate('user_id related_user_id')
+            .populate('toUserId status')
             .skip(desde)
             .limit(20)
             .exec();
+        
+        // Add users to friends list
+        fromUserFriends.map(friend => ( friends.push({
+            uid: friend.toUserId._id,
+            name: friend.toUserId.name,
+            lastName: friend.toUserId.lastName,
+            email: friend.toUserId.email,
+            about: friend.toUserId.about,
+            relationshipStatus: friend.status,
+            online: friend.toUserId.online,
+            lastConnection: friend.toUserId.lastConnection,
+        })));
+
+        // Get all users when toUserId matchs current user
+        const toUserFriends = await Relationship
+            .find({
+                $or: [
+                    { toUserId: req.uid, status: 'friends' }
+                ]
+            })
+            .populate('fromUserId status')
+            .skip(desde)
+            .limit(20)
+            .exec();
+
+        // Add users to friends list
+        toUserFriends.map(friend => ( friends.push({
+            uid: friend.fromUserId._id,
+            name: friend.fromUserId.name,
+            lastName: friend.fromUserId.lastName,
+            email: friend.fromUserId.email,
+            about: friend.fromUserId.about,
+            relationshipStatus: friend.status,
+            online: friend.fromUserId.online,
+            lastConnection: friend.fromUserId.lastConnection,
+        })));
         
         res.json({
             ok: true,
@@ -39,22 +76,24 @@ const getFriendRequests = async (req, res = response) => {
         const friends = await Relationship
             .find({
                 $or: [
-                    { relatedUserId: req.uid, status: 'pending' }
+                    { toUserId: req.uid, status: 'pending' }
                 ]
             })
-            .populate('userId')
+            .populate('fromUserId status')
             .skip(desde)
             .limit(20)
             .exec();
 
         // Transform the result to return only the fields you need
         const formattedFriends = friends.map(friend => ({
-            uid: friend.userId._id,
-            name: friend.userId.name,
-            email: friend.userId.email,
-            about: friend.userId.about,
-            online: friend.userId.online,
-            lastConnection: friend.userId.lastConnection,
+            uid: friend.fromUserId._id,
+            name: friend.fromUserId.name,
+            lastName: friend.fromUserId.lastName,
+            email: friend.fromUserId.email,
+            about: friend.fromUserId.about,
+            relationshipStatus: friend.status,
+            online: friend.fromUserId.online,
+            lastConnection: friend.fromUserId.lastConnection,
         }));
         
         res.json({
@@ -74,26 +113,27 @@ const getSentFriendRequests = async (req, res = response) => {
     const desde = Number(req.query.desde) || 0;
 
     try {
-        console.log(req.uid);
         const friends = await Relationship
             .find({
                 $or: [
-                    { userId: req.uid, status: 'pending' },
+                    { fromUserId: req.uid, status: 'pending' },
                 ]
             })
-            .populate('relatedUserId')
+            .populate('toUserId status')
             .skip(desde)
             .limit(20)
             .exec();
 
         // Transform the result to return only the fields you need
         const formattedFriends = friends.map(friend => ({
-            uid: friend.relatedUserId._id,
-            name: friend.relatedUserId.name,
-            email: friend.relatedUserId.email,
-            about: friend.relatedUserId.about,
-            online: friend.relatedUserId.online,
-            lastConnection: friend.relatedUserId.lastConnection,
+            uid: friend.toUserId._id,
+            name: friend.toUserId.name,
+            lastName: friend.toUserId.lastName,
+            email: friend.toUserId.email,
+            about: friend.toUserId.about,
+            relationshipStatus: friend.status,
+            online: friend.toUserId.online,
+            lastConnection: friend.toUserId.lastConnection,
         }));
 
         res.json({
@@ -116,10 +156,10 @@ const getTotalFriendRequests = async ( req, res = response ) => {
         const friendRequests = await Relationship
             .find({
                 $or: [
-                    { relatedUserId: req.uid, status: 'pending' }
+                    { toUserId: req.uid, status: 'pending' }
                 ]
             })
-            .populate('userId')
+            .populate('fromUserId')
             .exec();
 
         const totalFriendRequests = friendRequests.length;
@@ -145,10 +185,10 @@ const getTotalSentFriendRequests = async ( req, res = response ) => {
         const sentFriendRequests = await Relationship
             .find({
                 $or: [
-                    { userId: req.uid, status: 'pending' },
+                    { fromUserId: req.uid, status: 'pending' },
                 ]
             })
-            .populate('relatedUserId')
+            .populate('toUserId')
             .exec();
 
         const totalSentFriendRequests = sentFriendRequests.length;
@@ -169,13 +209,13 @@ const getTotalSentFriendRequests = async ( req, res = response ) => {
 
 const sendFriendRequest = async (req, res = response) => {
     try {
-        const { toUserId, status } = req.body; // Extract relatedUserId and status from the request body
-        const fromUserId = req.uid; // Assuming req.uid holds the ID of the logged-in user
+        const { toUserId } = req.body;
+        const fromUserId = req.uid; // Current logged-in user
 
-        // Check if users exist (optional, depending on your app's needs)
+        // Check if users exists
         const fromUser = await User.findById(fromUserId);
         const toUser = await User.findById(toUserId);
-
+        
         if (!fromUser || !toUser) {
             return res.status(404).json({
                 ok: false,
@@ -183,35 +223,72 @@ const sendFriendRequest = async (req, res = response) => {
             });
         }
 
-        // Check if the relationship already exists
-        const relationshipExists = await Relationship.findOne({
+        // Check if the relationship already exists for both users as friends
+        const relationshipFriendsExists = await Relationship.findOne({
             $or: [
-                { fromUserId: fromUserId, toUserId: toUserId },
+                { fromUserId: fromUserId, toUserId: toUserId, status: 'friends' },
+                { fromUserId: toUserId, toUserId: fromUserId, status: 'friends' }
+            ]
+        });
+
+        if (relationshipFriendsExists) {
+            return res.status(400).json({
+                ok: false,
+                relationship: relationshipFriendsExists.status,
+                msg: 'A relationship as friends already exists between these users.'
+            });
+        }
+
+        // Check if the relationship already exists (current user already sent a friend request before)
+        const relationshipFromUserExists = await Relationship.findOne({
+            $or: [
+                { fromUserId: fromUserId, toUserId: toUserId }
+            ]
+        });
+
+        if (relationshipFromUserExists) {
+            return res.status(400).json({
+                ok: false,
+                relationship: relationshipFromUserExists.status,
+                msg: 'A relationship already exists between these users.'
+            });
+        }
+
+        // Check if the relationship already exists (destination user already have sent a friend request before)
+        const relationshipToUserExists = await Relationship.findOne({
+            $or: [
                 { fromUserId: toUserId, toUserId: fromUserId }
             ]
         });
 
-        if (relationshipExists) {
-            return res.status(400).json({
-                ok: false,
-                msg: 'A relationship already exists between these users.'
+        if (relationshipToUserExists) {
+            // Accept the friend request
+            console.log('relationshipToUserExists exists');
+            console.log(relationshipToUserExists);
+            relationshipToUserExists.status = 'friends';
+            relationshipToUserExists.updatedAt = Date.now();
+            await relationshipToUserExists.save();
+            
+            return res.json({ 
+                ok: true,
+                relationship: relationshipToUserExists.status,
+                msg: 'You\'re now friends.',
             });
         }
 
         // Create a new relationship document
         const relationship = new Relationship({
-            userId: fromUserId,
+            fromUserId,
             toUserId,
-            status: status || 'pending' // Default status to 'pending' if not provided
+            status: 'pending'
         });
 
         // Save the relationship to the database
         await relationship.save();
-        console.log('relationship saved');
 
         res.json({ 
             ok: true,
-            relationship,
+            relationship: relationship.status,
             msg: 'Friend request sent successfully.',
         });
     } catch (err) {
@@ -223,75 +300,74 @@ const sendFriendRequest = async (req, res = response) => {
     }
 };
 
-/*const sendFriendRequest = async (req, res = response) => {
+const unsendFriendRequest = async (req, res = response) => {
     try {
-        const { relatedUserId, status } = req.body;
-        const fromUserId = req.uid;
+        const { toUserId } = req.body;
+        const fromUserId = req.uid; // Current logged-in user
 
+        // Check if users exists
         const fromUser = await User.findById(fromUserId);
-        const relatedUser = await User.findById(relatedUserId);
-
-        if (!fromUser || !relatedUser) {
+        const toUser = await User.findById(toUserId);
+        
+        if (!fromUser || !toUser) {
             return res.status(404).json({
                 ok: false,
                 msg: 'One or both users not found.'
             });
         }
 
-        console.log(`fromUserId: ${fromUserId}`);
-        console.log(`relatedUserId: ${relatedUserId}`);
-        console.log(`status: ${status}`);
-
-        const relationshipExists = await Relationship.findOne({ 
-            userId: fromUserId, 
-            relatedUserId 
+        // Check if the relationship already exists (current user already sent a friend request before)
+        const relationship = await Relationship.findOne({
+            $or: [
+                { fromUserId: fromUserId, toUserId: toUserId }
+            ]
         });
 
-        console.log(relationshipExists)
-
-        if ( relationshipExists ) {
+        if (!relationship) {
             return res.status(400).json({
-                ok: false,
-                msg: 'Ya existe una relación'
+                ok: true,
+                msg: 'Doesn\'t exists a relationship between these users.'
             });
         }
 
-        const relationship = new Relationship({
-            userId: fromUserId,
-            relatedUserId,
-            status: status || 'pending' // Default status to 'pending' if not provided
-        });
-
-        await relationship.save();
+        // Delete relationship document
+        await Relationship.findByIdAndDelete(relationship._id);
 
         res.json({ 
             ok: true,
-            relationship,
-            msg: 'Friend request sent',
+            msg: 'Friend request unsent successfully.',
         });
     } catch (err) {
-        console.log(err);
-        res.status(500).json({ ok: false, msg: 'An error occurred' });
+        console.error(err); // Log the error for debugging
+        res.status(500).json({ 
+            ok: false, 
+            msg: 'An error occurred while processing the request.' 
+        });
     }
-};*/
+};
 
 const respondFriendRequest = async ( req, res = response ) => {
     console.log('here!');
     try {
         const { toUserId, isAccepted } = req.body;
-        const fromUserId = req.uid;
+        const fromUserId = req.uid; // Current logged-in user
 
+        // Check if users exists
         const fromUser = await User.findById(fromUserId);
         const toUser = await User.findById(toUserId);
         
         if (!fromUser || !toUser) {
-            return res.status(404).json({ ok: false, msg: 'User not found' });
+            return res.status(404).json({ 
+                ok: false, 
+                msg: 'One or both users not found.' 
+            });
         }
 
+        // Check if the relationship exists
         const relationship = await Relationship.findOne({
             $or: [
-                { userId: fromUserId, relatedUserId: relatedUserId },
-                { userId: relatedUserId, relatedUserId: fromUserId }
+                { fromUserId: fromUserId, toUserId: toUserId },
+                { fromUserId: toUserId, toUserId: fromUserId }
             ]
         });
 
@@ -304,8 +380,11 @@ const respondFriendRequest = async ( req, res = response ) => {
 
         if (isAccepted) {
             relationship.status = 'friends';
+            relationship.updatedAt = Date.now;
             await relationship.save();
         } else {
+            console.log('wdym??');
+            
             await Relationship.findByIdAndDelete(relationship._id);
         }
 
@@ -336,6 +415,52 @@ const respondFriendRequest = async ( req, res = response ) => {
     }
 };
 
+const deleteFriend = async (req, res = response) => {
+    try {
+        const { toUserId } = req.body;
+        const fromUserId = req.uid; // Current logged-in user
+
+        // Check if users exists
+        const fromUser = await User.findById(fromUserId);
+        const toUser = await User.findById(toUserId);
+        
+        if (!fromUser || !toUser) {
+            return res.status(404).json({
+                ok: false,
+                msg: 'One or both users not found.'
+            });
+        }
+
+        // Check if the relationship already exists (current user already sent a friend request before)
+        const relationship = await Relationship.findOne({
+            $or: [
+                { fromUserId: fromUserId, toUserId: toUserId },
+                { fromUserId: toUserId, toUserId: fromUserId }
+            ]
+        });
+
+        if (!relationship) {
+            return res.status(400).json({
+                ok: true,
+                msg: 'Doesn\'t exists a relationship between these users.'
+            });
+        }
+
+        // Delete relationship document
+        await Relationship.findByIdAndDelete(relationship._id);
+
+        res.json({ 
+            ok: true,
+            msg: 'Friend deleted successfully.',
+        });
+    } catch (err) {
+        console.error(err); // Log the error for debugging
+        res.status(500).json({ 
+            ok: false, 
+            msg: 'An error occurred while processing the request.' 
+        });
+    }
+};
 
 module.exports = {
     getFriends,
@@ -344,5 +469,7 @@ module.exports = {
     getTotalFriendRequests,
     getTotalSentFriendRequests,
     sendFriendRequest,
+    unsendFriendRequest,
     respondFriendRequest,
+    deleteFriend,
 }

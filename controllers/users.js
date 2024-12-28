@@ -1,50 +1,82 @@
 const { response } = require('express');
 const User = require('../models/user');
+const Relationship = require('../models/relationship');
 
-const getUsers = async ( req, res = response ) => {
-    const desde = Number( req.query.desde ) || 0;
-    console.log('getUsers')
+const getUsers = async (req, res = response) => {
+    const desde = Number(req.query.desde) || 0;
+    const currentUserId = req.uid;
 
-    const users = await User
-        .find({ _id: { $ne: req.uid } })
-        .sort('-online')
-        .skip(desde)
-        .limit(20)
-        .exec();
-
-    res.json({
-        ok: true,
-        users,
-        desde,
-    });
-}
-
-/*const sendFriendRequest = async (req, res = response) => {
     try {
-        const { toUserId } = req.body;
-        const fromUserId = req.uid;
+        // Find the current user to get their friends list
+        const currentUser = await User.findById(currentUserId);
 
-        const fromUser = await User.findById(fromUserId);
-        const toUser = await User.findById(toUserId);
+        if (!currentUser) {
+            console.log('flag 1');
 
-        if (!fromUser || !toUser) {
-            return res.status(404).json({ ok: false, msg: 'User not found' });
+            return res.status(404).json({
+                ok: false,
+                msg: 'Current user not found'
+            });
         }
 
-        // Enviamos la solicitud al usuario deseado y guardamos el registro 
-        // en las solicitudes enviadas del usuario
-        if (!toUser.friendRequests.includes(fromUserId)) {
-            toUser.friendRequests.push(fromUserId);
-            fromUser.sentFriendRequests.push(toUserId);
-            await toUser.save();
-            await fromUser.save();
-        }
+        // Find users excluding the current user
+        const usersReached = await User
+            .find({ _id: { $ne: currentUserId } })
+            .sort('-online')
+            .skip(desde)
+            .limit(20)
+            .exec();
 
-        res.json({ ok: true, msg: 'Friend request sent', });
+        // Get all relationships for the current user
+        const relationships = await Relationship.find({
+            $or: [
+                { fromUserId: currentUserId },
+                { toUserId: currentUserId }
+            ]
+        });
+
+        // Map through users and determine the relationship status
+        const usersWithRelationshipStatus = usersReached.map(user => {
+            const relationship = relationships.find(rel =>
+                (rel.fromUserId.equals(currentUserId) && rel.toUserId.equals(user._id)) ||
+                (rel.toUserId.equals(currentUserId) && rel.fromUserId.equals(user._id))
+            );
+
+            let relationshipStatus = 'none';
+            if (relationship) {
+                relationshipStatus = relationship.status;
+            }
+
+            return {
+                uid: user._id,
+                name: user.name,
+                lastName: user.lastName,
+                userName: user.userName,
+                email: user.email,
+                about: user.about,
+                online: user.online,
+                lastConnection: user.lastConnection,
+                profilePicture: user.profilePicture,
+                pinnedChats: user.pinnedChats,
+                createdAt: user.createdAt,
+                updatedAt: user.updatedAt,
+                relationshipStatus: relationshipStatus
+            };
+        });
+
+        res.json({
+            ok: true,
+            users: usersWithRelationshipStatus,
+            desde,
+        });
     } catch (err) {
-        res.status(500).json({ ok: false, msg: 'An error occurred' });
+        console.error(err); // Log the error for debugging
+        res.status(500).json({
+            ok: false,
+            msg: 'An error occurred while processing the request.'
+        });
     }
-};*/
+};
 
 module.exports = {
     getUsers

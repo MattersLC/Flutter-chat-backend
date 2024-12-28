@@ -56,7 +56,7 @@ const login = async ( req, res = response ) => {
         if ( !dbUser ) {
             return res.status(404).json({
                 ok: false,
-                msg: 'Email no encontrado'
+                msg: 'User not found'
             });
         }
 
@@ -65,7 +65,7 @@ const login = async ( req, res = response ) => {
         if ( !validPassword ) {
             return res.status(400).json({
                 ok: false,
-                msg: 'Contraseña inválida'
+                msg: 'Incorrect password'
             });
         }
 
