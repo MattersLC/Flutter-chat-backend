@@ -1,6 +1,8 @@
 const { response } = require('express');
 const User = require('../models/user');
 const Relationship = require('../models/relationship');
+const multer = require('multer');
+const upload = multer({dest: 'uploads/'});
 
 const getUsers = async (req, res = response) => {
     const desde = Number(req.query.desde) || 0;
@@ -44,7 +46,10 @@ const getUsers = async (req, res = response) => {
 
             let relationshipStatus = 'none';
             if (relationship) {
-                relationshipStatus = relationship.status;
+                if (!(relationship.toUserId.equals(currentUserId) && relationship.status == 'pending')) {
+                    relationshipStatus = relationship.status;
+                    //relationshipStatus = 'none';
+                }
             }
 
             return {
@@ -64,11 +69,14 @@ const getUsers = async (req, res = response) => {
             };
         });
 
+        //console.log(usersWithRelationshipStatus);
+
         res.json({
             ok: true,
             users: usersWithRelationshipStatus,
             desde,
         });
+
     } catch (err) {
         console.error(err); // Log the error for debugging
         res.status(500).json({
@@ -78,6 +86,24 @@ const getUsers = async (req, res = response) => {
     }
 };
 
+const uploadProfilePicture = async (req, res = response) => {
+    const currentUserId = req.uid;
+
+    try {
+        res.json({
+            ok: true,
+            msg: 'photo successfully updated!',
+        });
+    } catch (err) {
+        console.error(err); // Log the error for debugging
+        res.status(500).json({
+            ok: false,
+            msg: 'An error occurred while updating user\'s profile picture.'
+        });
+    }
+}
+
 module.exports = {
-    getUsers
+    getUsers,
+    uploadProfilePicture,
 }

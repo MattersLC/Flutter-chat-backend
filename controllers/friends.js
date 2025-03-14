@@ -26,6 +26,7 @@ const getFriends = async (req, res = response) => {
             lastName: friend.toUserId.lastName,
             email: friend.toUserId.email,
             about: friend.toUserId.about,
+            profilePicture: friend.toUserId.profilePicture,
             relationshipStatus: friend.status,
             online: friend.toUserId.online,
             lastConnection: friend.toUserId.lastConnection,
@@ -50,6 +51,7 @@ const getFriends = async (req, res = response) => {
             lastName: friend.fromUserId.lastName,
             email: friend.fromUserId.email,
             about: friend.fromUserId.about,
+            profilePicture: friend.fromUserId.profilePicture,
             relationshipStatus: friend.status,
             online: friend.fromUserId.online,
             lastConnection: friend.fromUserId.lastConnection,
@@ -91,6 +93,7 @@ const getFriendRequests = async (req, res = response) => {
             lastName: friend.fromUserId.lastName,
             email: friend.fromUserId.email,
             about: friend.fromUserId.about,
+            profilePicture: friend.fromUserId.profilePicture,
             relationshipStatus: friend.status,
             online: friend.fromUserId.online,
             lastConnection: friend.fromUserId.lastConnection,
@@ -111,7 +114,8 @@ const getFriendRequests = async (req, res = response) => {
 
 const getSentFriendRequests = async (req, res = response) => {
     const desde = Number(req.query.desde) || 0;
-
+    console.log('here');
+    console.log(req.uid)
     try {
         const friends = await Relationship
             .find({
@@ -123,6 +127,7 @@ const getSentFriendRequests = async (req, res = response) => {
             .skip(desde)
             .limit(20)
             .exec();
+        console.log(friends)
 
         // Transform the result to return only the fields you need
         const formattedFriends = friends.map(friend => ({
@@ -131,10 +136,14 @@ const getSentFriendRequests = async (req, res = response) => {
             lastName: friend.toUserId.lastName,
             email: friend.toUserId.email,
             about: friend.toUserId.about,
+            profilePicture: friend.toUserId.profilePicture,
             relationshipStatus: friend.status,
             online: friend.toUserId.online,
             lastConnection: friend.toUserId.lastConnection,
         }));
+
+        console.log('you must be here')
+        console.log(formattedFriends)
 
         res.json({
             ok: true,

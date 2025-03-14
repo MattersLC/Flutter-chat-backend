@@ -91,27 +91,24 @@ const Message = require('../models/message');
 const getChats = async (req, res = response) => {
     const desde = Number(req.query.desde) || 0;
 
-    // Fetch the user's relationships where status is "friend"
+    // Fetch the user's id
     const userId = req.uid;
+
+    // Get the current user
+    const currentUser = await User.findById(userId);
 
     // Get all relationships where the user is either the 'user_id' or 'related_user_id' with status "friend"
     const relationships = await Relationship.find({
         $or: [
-            { user_id: userId, status: 'friend' },
-            { related_user_id: userId, status: 'friend' }
+            { fromUserId: userId, status: 'friends' },
+            { toUserId: userId, status: 'friends' }
         ]
-    }).populate('user_id related_user_id');
+    }).populate('fromUserId toUserId');
 
     // Extract friends from relationships
     const friends = relationships.map(rel => {
-        return rel.user_id.toString() === userId ? rel.related_user_id : rel.user_id;
+        return rel.fromUserId._id.toString() === userId ? rel.toUserId : rel.fromUserId;
     });
-
-    /*console.log('------- User -------');
-    console.log(userId);
-
-    console.log('------- Friends -------');
-    console.log(friends);*/
 
     // Fetch last message info for each friend
     const friendsWithMessages = await Promise.all(friends.map(async (friend) => {
@@ -119,19 +116,18 @@ const getChats = async (req, res = response) => {
             $or: [{ from: userId, to: friend._id }, { from: friend._id, to: userId }]
         }).sort({ createdAt: 'desc' });
 
-        console.log('------- Friend -------');
-        console.log(friend);
-
         // Check if the chat is pinned by the user
-        const isPinned = friend.pinnedChats.includes(userId);
+        const isPinned = currentUser.pinnedChats.includes(friend._id);
 
         return {
-            user: friend,
+            //user: friend,
             _id: friend._id,
             name: friend.name,
+            online: friend.online,
             lastMessage: lastMessage ? lastMessage.message : null,
             lastMessageTime: lastMessage ? lastMessage.createdAt : null,
             lastMessageViewed: lastMessage ? lastMessage.viewed : null,
+            profilePicture: friend.profilePicture,
             isPinned: isPinned,
         };
     }));
@@ -146,11 +142,68 @@ const getChats = async (req, res = response) => {
     // Return the combined result with pinned chats first
     res.json({ 
         ok: true, 
-        chats: [...pinnedChats, ...paginatedFriends], // Combine pinned and general chats
+        //chats: [...pinnedChats, ...paginatedFriends], // Combine pinned and general chats
+        chats: paginatedFriends,
+        pinnedChats: pinnedChats,
         desde, 
     });
 };
 
+const pinChat = async ( req, res = response ) => {
+    console.log('pinChat module');
+    const { toUserId } = req.body;
+    const fromUserId = req.uid;
+
+    // Check if users exists
+    const fromUser = await User.findById(fromUserId);
+    const toUser = await User.findById(toUserId);
+    
+    if (!fromUser || !toUser) {
+        return res.status(404).json({
+            ok: false,
+            msg: 'One or both users not found.'
+        });
+    }
+
+    fromUser.pinnedChats.push(toUserId);
+    console.log(fromUser);
+    await fromUser.save();
+
+    res.json({ 
+        ok: true,
+        msg: 'Chat pinned successfully.',
+    });
+}
+
+const unpinChat = async ( req, res = response ) => {
+    console.log('unpinChat module');
+    const { toUserId } = req.body;
+    const fromUserId = req.uid;
+
+    // Check if users exists
+    const fromUser = await User.findById(fromUserId);
+    const toUser = await User.findById(toUserId);
+    
+    if (!fromUser || !toUser) {
+        return res.status(404).json({
+            ok: false,
+            msg: 'One or both users not found.'
+        });
+    }
+
+    console.log('removing chat from pinned chats');
+    fromUser.pinnedChats.remove(toUserId);
+    console.log(fromUser);
+    await fromUser.save();
+
+    res.json({ 
+        ok: true,
+        msg: 'Chat unpinned successfully.',
+    });
+}
+
 module.exports = {
-    getChats
+    getChats,
+    pinChat,
+    unpinChat,
 }
